@@ -1,0 +1,1291 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+  <title>Daily Task Tracker</title>
+  <meta name="description" content="Your daily tasks as a swipeable deck of cards.">
+  <meta name="theme-color" content="#1F6F54">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <meta name="apple-mobile-web-app-title" content="Tasks">
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="icon" type="image/png" href="icons/icon-192.png">
+  <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Plus+Jakarta+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@500;700&display=swap">
+  <style>
+    :root {
+      --bg-vignette: radial-gradient(ellipse at 50% -10%, #F4FAF6 0%, #E1F0E6 45%, #CFE6D9 100%);
+      --card-bg: #FFFFFF; --card-border: #DCEBE1; --ink: #16261D; --ink-soft: #5B7568;
+      --primary: #1F6F54; --primary-dark: #154F3C; --primary-soft: #E4F3EB;
+      --gold: #C9922A; --gold-soft: #FBEFD6; --coral: #D6503F; --coral-dark: #B23327; --coral-soft: #FBE4E0;
+      --emerald: #2E9A66; --overlay: rgba(10, 25, 18, 0.55);
+      --shadow: 0 14px 34px rgba(19, 46, 33, 0.14); --shadow-lg: 0 20px 50px rgba(19, 46, 33, 0.24);
+      --radius: 22px;
+      --font-display: 'Fraunces', Georgia, serif;
+      --font-body: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
+      --font-mono: 'JetBrains Mono', ui-monospace, monospace;
+      --safe-top: env(safe-area-inset-top, 0px); --safe-bottom: env(safe-area-inset-bottom, 0px);
+      --safe-left: env(safe-area-inset-left, 0px); --safe-right: env(safe-area-inset-right, 0px);
+    }
+    [data-theme="dark"] {
+      --bg-vignette: radial-gradient(ellipse at 50% -10%, #17281F 0%, #101E18 45%, #0B1712 100%);
+      --card-bg: #17251F; --card-border: #26382E; --ink: #EAF3EC; --ink-soft: #93AB9E;
+      --primary: #45AA85; --primary-dark: #327A5D; --primary-soft: #1D3329;
+      --gold: #E4BB58; --gold-soft: #2B2412; --coral: #EC7565; --coral-dark: #C24B3A; --coral-soft: #331B17;
+      --emerald: #4FC28B; --overlay: rgba(0, 0, 0, 0.6);
+      --shadow: 0 14px 34px rgba(0, 0, 0, 0.4); --shadow-lg: 0 20px 50px rgba(0, 0, 0, 0.55);
+    }
+    * { box-sizing: border-box; }
+    html, body {
+      margin: 0; padding: 0; min-height: 100%; font-family: var(--font-body); color: var(--ink);
+      background: var(--bg-vignette); background-attachment: fixed; -webkit-tap-highlight-color: transparent;
+      overscroll-behavior-y: contain; -webkit-text-size-adjust: 100%;
+    }
+    body { min-height: 100vh; overflow-x: hidden; }
+    h1, h2, h3 { font-family: var(--font-display); margin: 0; }
+    button { font-family: var(--font-body); cursor: pointer; }
+    input, select, textarea { font-family: var(--font-body); }
+    .hidden { display: none !important; }
+
+    /* ---------- AUTH ---------- */
+    #authScreen { min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: calc(24px + var(--safe-top)) 24px calc(24px + var(--safe-bottom)); }
+    .auth-card { width: 100%; max-width: 380px; background: var(--card-bg); border: 1px solid var(--card-border); border-radius: var(--radius); box-shadow: var(--shadow-lg); padding: 32px 28px; }
+    .auth-brand { text-align: center; margin-bottom: 22px; }
+    .auth-brand .mark { font-size: 32px; display: inline-flex; align-items: center; justify-content: center; width: 62px; height: 62px; border-radius: 18px; margin-bottom: 10px; background: linear-gradient(145deg, var(--primary), var(--primary-dark)); color: #fff; box-shadow: var(--shadow); font-weight: 700; }
+    .auth-brand h1 { font-size: 26px; font-weight: 700; }
+    .auth-brand p { color: var(--ink-soft); font-size: 13.5px; margin: 4px 0 0; }
+    .field { margin-bottom: 14px; }
+    .field label { display: block; font-size: 12.5px; font-weight: 600; color: var(--ink-soft); margin-bottom: 6px; }
+    .field input { width: 100%; padding: 12px 14px; border-radius: 13px; border: 1.5px solid var(--card-border); background: var(--card-bg); color: var(--ink); font-size: 16px; outline: none; transition: border-color .15s; }
+    .field input:focus { border-color: var(--primary); }
+    .btn { border: none; border-radius: 13px; padding: 13px 18px; font-weight: 700; font-size: 14.5px; width: 100%; transition: transform .12s ease, opacity .12s ease; }
+    .btn:active { transform: scale(0.98); }
+    .btn:disabled { opacity: .6; }
+    .btn-primary { background: linear-gradient(145deg, var(--primary), var(--primary-dark)); color: #fff; }
+    .btn-emerald { background: var(--emerald); color: #fff; }
+    .btn-coral { background: var(--coral); color: #fff; }
+    .btn-ghost { background: var(--primary-soft); color: var(--primary); }
+    .auth-error { background: var(--coral-soft); color: var(--coral); font-size: 13px; font-weight: 600; padding: 10px 12px; border-radius: 11px; margin-bottom: 14px; display: none; }
+
+    /* ---------- APP SHELL ---------- */
+    #appScreen { min-height: 100vh; display: flex; flex-direction: column; }
+    header {
+      position: sticky; top: 0; z-index: 40; display: flex; align-items: center; justify-content: space-between; gap: 8px;
+      padding: calc(12px + var(--safe-top)) calc(14px + var(--safe-right)) 12px calc(14px + var(--safe-left));
+      backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
+      background: color-mix(in srgb, var(--card-bg) 72%, transparent); border-bottom: 1px solid var(--card-border);
+    }
+    .brand-mini { display: flex; align-items: center; gap: 8px; font-family: var(--font-display); font-weight: 700; font-size: 15px; flex-shrink: 0; }
+    .brand-mini .dot { width: 24px; height: 24px; border-radius: 8px; background: linear-gradient(145deg, var(--primary), var(--primary-dark)); display: inline-block; }
+    .user-subbar { display: flex; align-items: center; justify-content: center; gap: 12px; padding: 6px calc(18px + var(--safe-right)) 6px calc(18px + var(--safe-left)); font-size: 12.5px; font-weight: 600; color: var(--ink-soft); border-bottom: 1px solid var(--card-border); flex-wrap: wrap; }
+    .install-btn { border: none; background: var(--gold-soft); color: var(--gold); font-weight: 700; font-size: 12px; padding: 6px 12px; border-radius: 999px; }
+
+    .view-toggle { display: flex; background: var(--primary-soft); border-radius: 999px; padding: 4px; gap: 2px; overflow-x: auto; scrollbar-width: none; }
+    .view-toggle::-webkit-scrollbar { display: none; }
+    .view-btn { border: none; background: transparent; padding: 8px 14px; border-radius: 999px; font-weight: 600; font-size: 12.5px; color: var(--ink-soft); white-space: nowrap; flex-shrink: 0; }
+    .view-btn.active { background: var(--card-bg); color: var(--primary); box-shadow: var(--shadow); }
+    @media (max-width: 480px) { .view-btn { padding: 7px 10px; font-size: 11.5px; } .brand-mini .brand-text { display: none; } .logout-btn .lbl { display: none; } .logout-btn { padding: 10px 12px !important; } }
+
+    .hud { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
+    .theme-switch { width: 44px; height: 25px; border-radius: 999px; background: var(--card-border); position: relative; border: none; padding: 0; flex-shrink: 0; }
+    .theme-switch .knob { position: absolute; top: 2px; left: 2px; width: 21px; height: 21px; border-radius: 50%; background: var(--card-bg); box-shadow: 0 2px 5px rgba(0,0,0,.25); display: flex; align-items: center; justify-content: center; font-size: 11px; transition: left .2s ease; }
+    [data-theme="dark"] .theme-switch .knob { left: 21px; }
+    .logout-btn { display: flex; align-items: center; gap: 6px; background: linear-gradient(145deg, var(--coral), var(--coral-dark)); color: #fff; border: none; border-radius: 999px; padding: 10px 16px; font-weight: 700; font-size: 13px; box-shadow: var(--shadow); flex-shrink: 0; }
+    .logout-btn:active { transform: scale(0.95); }
+
+    main { flex: 1; display: flex; flex-direction: column; align-items: center; padding: 18px calc(16px + var(--safe-right)) calc(110px + var(--safe-bottom)) calc(16px + var(--safe-left)); position: relative; }
+
+    /* ---------- DECK ---------- */
+    #stackContainer { position: relative; width: 100%; max-width: 400px; height: 62vh; min-height: 380px; margin-top: 8px; }
+    .task-card { position: absolute; inset: 0; background: var(--card-bg); border: 1px solid var(--card-border); border-radius: var(--radius); box-shadow: var(--shadow-lg); padding: 20px 20px 16px; display: flex; flex-direction: column; justify-content: space-between; touch-action: none; user-select: none; -webkit-user-select: none; will-change: transform; transition: transform .25s ease, opacity .25s ease, background .3s ease; }
+    .task-card.dragging { transition: none; }
+    .card-top { display: flex; align-items: center; justify-content: space-between; }
+    .badge-pending, .badge-new { font-family: var(--font-mono); font-size: 11.5px; font-weight: 700; padding: 5px 10px; border-radius: 999px; }
+    .badge-pending { background: var(--coral-soft); color: var(--coral); }
+    .badge-new { background: var(--primary-soft); color: var(--primary); }
+    .badge-saving { background: var(--gold-soft); color: var(--gold); font-family: var(--font-mono); font-size: 11.5px; font-weight: 700; padding: 5px 10px; border-radius: 999px; }
+    .corner-suit { font-size: 20px; color: var(--ink-soft); opacity: .5; }
+    .card-body { flex: 1; display: flex; flex-direction: column; justify-content: center; padding: 10px 2px; overflow: hidden; }
+    .card-body h3 { font-size: 23px; line-height: 1.25; font-weight: 600; margin-bottom: 8px; word-break: break-word; }
+    .card-body p { font-size: 14px; color: var(--ink-soft); line-height: 1.5; margin: 0; display: -webkit-box; -webkit-line-clamp: 4; -webkit-box-orient: vertical; overflow: hidden; word-break: break-word; }
+    .card-actions { display: flex; justify-content: space-around; align-items: center; padding-top: 8px; }
+    .act-btn { width: 54px; height: 54px; border-radius: 50%; border: none; font-size: 20px; font-weight: 700; display: flex; align-items: center; justify-content: center; box-shadow: var(--shadow); }
+    .act-delete { background: var(--coral-soft); color: var(--coral); }
+    .act-edit { background: var(--primary-soft); color: var(--primary); width: 44px; height: 44px; font-size: 17px; }
+    .act-complete { background: var(--emerald); color: #fff; }
+    .swipe-overlay { position: absolute; inset: 14px; border-radius: 16px; opacity: 0; pointer-events: none; display: flex; align-items: center; justify-content: center; font-family: var(--font-mono); font-weight: 700; font-size: 13px; letter-spacing: 1px; text-align: center; padding: 20px; }
+    .swipe-overlay.right { background: var(--primary-soft); color: var(--primary); border: 2px solid var(--primary); }
+    .swipe-overlay.left { background: var(--coral-soft); color: var(--coral); border: 2px solid var(--coral); }
+    #emptyState { position: absolute; left: 0; right: 0; display: none; flex-direction: column; align-items: center; justify-content: center; text-align: center; color: var(--ink-soft); gap: 8px; padding: 60px 20px; }
+    #emptyState .emoji { font-size: 46px; }
+    #emptyState h3 { color: var(--ink); font-size: 19px; }
+    #emptyState p { margin: 0; }
+    .fab { position: fixed; right: calc(22px + var(--safe-right)); bottom: calc(26px + var(--safe-bottom)); width: 60px; height: 60px; border-radius: 50%; background: linear-gradient(145deg, var(--gold), var(--primary)); color: #fff; border: none; font-size: 28px; box-shadow: var(--shadow-lg); z-index: 45; display: flex; align-items: center; justify-content: center; }
+    .fab:active { transform: scale(0.94); }
+
+    /* ---------- BOARD ---------- */
+    #boardContainer { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; width: 100%; max-width: 820px; margin-top: 8px; align-items: start; }
+    @media (max-width: 700px) { #boardContainer { grid-template-columns: 1fr; } }
+    .board-col { background: var(--card-bg); border: 1px solid var(--card-border); border-radius: var(--radius); padding: 14px; min-height: 200px; }
+    .board-col-header { font-family: var(--font-display); font-size: 16px; font-weight: 600; display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; padding-bottom: 10px; border-bottom: 1px solid var(--card-border); }
+    .board-col-header .count { font-family: var(--font-mono); font-size: 12px; color: var(--ink-soft); background: var(--primary-soft); padding: 2px 9px; border-radius: 999px; }
+    .board-col-body { display: flex; flex-direction: column; gap: 10px; min-height: 60px; max-height: 55vh; overflow-y: auto; padding-right: 2px; }
+    .board-empty { color: var(--ink-soft); font-size: 13px; text-align: center; padding: 22px 8px; }
+    .board-card { position: relative; background: var(--bg-vignette); border: 1px solid var(--card-border); border-radius: 14px; padding: 12px 14px; transition: transform .3s ease, opacity .3s ease, box-shadow .2s ease; }
+    .board-card:hover { box-shadow: var(--shadow); }
+    @keyframes cardFlipOut { 0% { transform: perspective(700px) rotateY(0deg); opacity: 1; } 100% { transform: perspective(700px) rotateY(90deg); opacity: 0; } }
+    @keyframes cardFlipIn { 0% { transform: perspective(700px) rotateY(-90deg); opacity: 0; } 100% { transform: perspective(700px) rotateY(0deg); opacity: 1; } }
+    .board-card.flipping-out { animation: cardFlipOut .3s ease forwards; }
+    .board-card.flipping-in { animation: cardFlipIn .3s ease forwards; }
+    .board-card-top { display: flex; gap: 6px; margin-bottom: 6px; flex-wrap: wrap; padding-right: 34px; }
+    .badge-date { font-family: var(--font-mono); font-size: 11px; font-weight: 700; padding: 4px 9px; border-radius: 999px; background: var(--gold-soft); color: var(--gold); }
+    .board-card-title { font-family: var(--font-display); font-size: 15.5px; font-weight: 600; margin-bottom: 4px; word-break: break-word; }
+    .board-card-notes { font-size: 12.5px; color: var(--ink-soft); margin-bottom: 8px; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; word-break: break-word; }
+    .board-card-actions { display: flex; gap: 6px; justify-content: flex-end; }
+    .mini-btn { width: 32px; height: 32px; border-radius: 50%; border: none; font-size: 13px; display: flex; align-items: center; justify-content: center; }
+    .mini-delete { background: var(--coral-soft); color: var(--coral); }
+    .mini-edit { background: var(--primary-soft); color: var(--primary); }
+    .mini-complete { background: var(--emerald); color: #fff; }
+    .mini-flip { position: absolute; top: 10px; right: 10px; width: 28px; height: 28px; background: var(--gold-soft); color: var(--gold); box-shadow: var(--shadow); z-index: 2; }
+
+    /* ---------- DONE ---------- */
+    #completedContainer { width: 100%; max-width: 480px; margin-top: 8px; }
+    .completed-filter-bar { display: flex; gap: 10px; margin-bottom: 10px; flex-wrap: wrap; align-items: center; }
+    .completed-filter-bar select { padding: 10px 12px; border-radius: 12px; border: 1.5px solid var(--card-border); background: var(--card-bg); color: var(--ink); font-size: 14px; font-weight: 600; outline: none; }
+    .pill-btn { border: none; background: var(--primary-soft); color: var(--primary); font-weight: 700; font-size: 12.5px; padding: 10px 14px; border-radius: 12px; margin-left: auto; }
+    .pill-btn:disabled { opacity: .6; }
+    #customDateRange { display: flex; gap: 8px; flex-wrap: wrap; width: 100%; }
+    #customDateRange input { padding: 9px 10px; border-radius: 11px; border: 1.5px solid var(--card-border); background: var(--card-bg); color: var(--ink); font-size: 14px; outline: none; }
+    .done-hint { font-size: 12px; color: var(--ink-soft); margin: 0 0 12px; }
+    .completed-card { background: var(--card-bg); border: 1px solid var(--card-border); border-radius: 16px; padding: 14px 16px; display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 10px; }
+    .completed-card-main { min-width: 0; }
+    .completed-card-title { font-family: var(--font-display); font-size: 15px; font-weight: 600; word-break: break-word; }
+    .completed-card-notes { font-size: 12.5px; color: var(--ink-soft); margin-top: 3px; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; word-break: break-word; }
+    .completed-card-side { display: flex; flex-direction: column; align-items: flex-end; gap: 6px; flex-shrink: 0; }
+    .completed-card-date { font-family: var(--font-mono); font-size: 11px; color: var(--emerald); font-weight: 700; white-space: nowrap; background: var(--primary-soft); padding: 5px 10px; border-radius: 999px; }
+    .reopen-btn { border: none; background: var(--gold-soft); color: var(--gold); font-weight: 700; font-size: 12px; padding: 6px 12px; border-radius: 999px; }
+
+    /* ---------- CALENDAR ---------- */
+    #calendarContainer { width: 100%; max-width: 480px; margin-top: 8px; }
+    .cal-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px; }
+    .cal-nav-btn { width: 36px; height: 36px; border-radius: 50%; border: none; background: var(--card-bg); color: var(--primary); font-size: 18px; box-shadow: var(--shadow); flex-shrink: 0; }
+    .cal-nav-btn:active { transform: scale(0.92); }
+    .cal-month-label { font-family: var(--font-display); font-size: 19px; font-weight: 600; }
+    .cal-subheader { display: flex; justify-content: center; margin-bottom: 12px; }
+    .cal-today-btn { background: var(--primary-soft); color: var(--primary); border: none; padding: 6px 16px; border-radius: 999px; font-weight: 600; font-size: 12.5px; }
+    .cal-weekdays { display: grid; grid-template-columns: repeat(7, 1fr); text-align: center; font-size: 11.5px; font-weight: 700; color: var(--ink-soft); margin-bottom: 6px; }
+    .cal-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 6px; margin-bottom: 18px; }
+    .cal-cell { position: relative; aspect-ratio: 1 / 1; background: var(--card-bg); border: 1px solid var(--card-border); border-radius: 12px; display: flex; flex-direction: column; align-items: center; justify-content: center; cursor: pointer; transition: background .15s ease, transform .1s ease, border-color .15s ease; }
+    .cal-cell:active { transform: scale(0.94); }
+    .cal-cell.muted { opacity: 0.35; cursor: default; }
+    .cal-cell.is-today { border-color: var(--gold); border-width: 2px; }
+    .cal-cell.is-today .cal-day-num { color: var(--gold); font-weight: 800; }
+    .cal-cell.is-selected { background: var(--primary); border-color: var(--primary); }
+    .cal-cell.is-selected .cal-day-num { color: #fff; }
+    .cal-day-num { font-family: var(--font-mono); font-size: 13.5px; font-weight: 600; }
+    .cal-dot-wrap { display: flex; align-items: center; gap: 3px; margin-top: 3px; }
+    .cal-dot { width: 5px; height: 5px; border-radius: 50%; background: var(--emerald); display: inline-block; }
+    .cal-cell.is-selected .cal-dot { background: #fff; }
+    .cal-count { font-family: var(--font-mono); font-size: 9px; color: var(--ink-soft); }
+    .cal-cell.is-selected .cal-count { color: rgba(255,255,255,0.85); }
+    .cal-day-panel { background: var(--card-bg); border: 1px solid var(--card-border); border-radius: var(--radius); padding: 14px 16px; }
+    .cal-day-panel-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; gap: 10px; }
+    .cal-day-panel-header h3 { font-size: 15px; font-weight: 600; }
+    #calAddTaskBtn { width: 34px; height: 34px; font-size: 18px; flex-shrink: 0; }
+
+    /* ---------- MODALS ---------- */
+    .modal-overlay { position: fixed; inset: 0; background: var(--overlay); display: flex; align-items: flex-end; justify-content: center; z-index: 100; opacity: 0; pointer-events: none; transition: opacity .2s ease; }
+    .modal-overlay.show { opacity: 1; pointer-events: auto; }
+    @media (min-width: 520px) { .modal-overlay { align-items: center; } }
+    .modal-panel { background: var(--card-bg); width: 100%; max-width: 420px; max-height: 92vh; overflow-y: auto; border-radius: 24px 24px 0 0; padding: 24px 22px calc(26px + var(--safe-bottom)); box-shadow: var(--shadow-lg); transform: translateY(20px); transition: transform .2s ease; }
+    .modal-overlay.show .modal-panel { transform: translateY(0); }
+    @media (min-width: 520px) { .modal-panel { border-radius: 22px; padding-bottom: 26px; } }
+    .modal-panel h2 { font-size: 20px; margin-bottom: 6px; }
+    .modal-panel .sub { color: var(--ink-soft); font-size: 13.5px; margin: 0 0 18px; }
+    .modal-actions { display: flex; gap: 10px; margin-top: 18px; }
+    textarea { width: 100%; border-radius: 13px; border: 1.5px solid var(--card-border); background: var(--card-bg); color: var(--ink); font-size: 16px; padding: 12px 14px; resize: none; min-height: 80px; outline: none; }
+    textarea:focus { border-color: var(--primary); }
+    .snooze-options { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 14px; }
+    .snooze-chip { border: 1.5px solid var(--card-border); background: var(--card-bg); color: var(--ink); padding: 9px 15px; border-radius: 999px; font-weight: 600; font-size: 13px; }
+    .snooze-chip.active { background: var(--primary); border-color: var(--primary); color: #fff; }
+    .ios-steps { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 14px; }
+    .ios-steps li { display: flex; align-items: center; gap: 14px; font-size: 14px; line-height: 1.4; }
+    .ios-ic { width: 46px; height: 46px; border-radius: 13px; background: var(--primary-soft); color: var(--primary); display: flex; align-items: center; justify-content: center; flex-shrink: 0; font-weight: 700; font-size: 12px; }
+
+    #toast { position: fixed; bottom: calc(100px + var(--safe-bottom)); left: 50%; transform: translateX(-50%) translateY(20px); background: var(--ink); color: #F4FAF6; padding: 11px 18px; border-radius: 999px; font-size: 13.5px; font-weight: 600; opacity: 0; transition: all .25s ease; z-index: 200; pointer-events: none; max-width: 90vw; text-align: center; }
+    [data-theme="dark"] #toast { background: var(--card-bg); color: var(--ink); border: 1px solid var(--card-border); }
+    #toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+    #offlineBanner { position: fixed; top: 0; left: 0; right: 0; z-index: 250; background: var(--coral); color: #fff; font-size: 12.5px; font-weight: 700; text-align: center; padding: calc(6px + var(--safe-top)) 10px 6px; }
+    #updateBar { position: fixed; left: 50%; transform: translateX(-50%); bottom: calc(20px + var(--safe-bottom)); z-index: 260; background: var(--primary); color: #fff; border: none; padding: 12px 18px; border-radius: 999px; font-weight: 700; font-size: 13px; box-shadow: var(--shadow-lg); }
+    #confettiCanvas { position: fixed; inset: 0; z-index: 300; pointer-events: none; }
+
+    #deckLoader { width: 100%; max-width: 400px; height: 62vh; min-height: 380px; margin-top: 8px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 18px; }
+    .loader-cards { position: relative; width: 90px; height: 120px; }
+    .loader-card-face { position: absolute; inset: 0; border-radius: 14px; overflow: hidden; background: linear-gradient(135deg, var(--gold-soft), var(--primary-soft)); border: 1px solid var(--card-border); box-shadow: var(--shadow); animation: loaderDeal 1.3s ease-in-out infinite; }
+    .loader-card-face::after { content: ''; position: absolute; inset: 0; background: linear-gradient(100deg, transparent 30%, rgba(255,255,255,0.6) 50%, transparent 70%); background-size: 200% 100%; animation: loaderShimmer 1.3s ease-in-out infinite; }
+    @keyframes loaderDeal { 0% { transform: translate(var(--x,0), 0) rotate(var(--r,0)); opacity: .35; } 50% { transform: translate(var(--x,0), -16px) rotate(var(--r,0)); opacity: 1; } 100% { transform: translate(var(--x,0), 0) rotate(var(--r,0)); opacity: .35; } }
+    @keyframes loaderShimmer { 0% { background-position: -150% 0; } 100% { background-position: 150% 0; } }
+    .loader-text { font-family: var(--font-mono); font-size: 12.5px; font-weight: 600; color: var(--ink-soft); letter-spacing: .5px; }
+    @media (prefers-reduced-motion: reduce) { .task-card, .theme-switch .knob, .modal-overlay, .modal-panel, .loader-card-face, .loader-card-face::after { transition: none !important; animation: none !important; } }
+  </style>
+</head>
+<body>
+
+  <div id="offlineBanner" class="hidden">You are offline. Changes are disabled until you reconnect.</div>
+
+  <!-- ============ LOGIN ============ -->
+  <div id="authScreen">
+    <form class="auth-card" id="loginForm" autocomplete="on">
+      <div class="auth-brand">
+        <div class="mark">&#10003;</div>
+        <h1>Daily Task Tracker</h1>
+        <p>Your tasks, one card at a time.</p>
+      </div>
+      <div class="auth-error" id="authError" role="alert"></div>
+      <div class="field">
+        <label for="loginUserId">User ID</label>
+        <input type="text" id="loginUserId" name="username" autocomplete="username" autocapitalize="none" autocorrect="off" spellcheck="false" required>
+      </div>
+      <div class="field">
+        <label for="loginPassword">Password</label>
+        <input type="password" id="loginPassword" name="password" autocomplete="current-password" required>
+      </div>
+      <button class="btn btn-primary" id="loginBtn" type="submit">Log In</button>
+    </form>
+  </div>
+
+  <!-- ============ APP ============ -->
+  <div id="appScreen" class="hidden">
+    <header>
+      <div class="brand-mini"><span class="dot"></span><span class="brand-text">Tasks</span></div>
+      <div class="view-toggle" id="viewToggle">
+        <button class="view-btn active" data-view="deck">Deck</button>
+        <button class="view-btn" data-view="board">Board</button>
+        <button class="view-btn" data-view="calendar">Cal</button>
+        <button class="view-btn" data-view="completed">Done</button>
+      </div>
+      <div class="hud">
+        <button class="theme-switch" id="themeToggle" aria-label="Toggle dark mode"><span class="knob">&#9728;&#65039;</span></button>
+        <button class="logout-btn" id="logoutBtn" aria-label="Log out"><span>&#9099;</span><span class="lbl">Log Out</span></button>
+      </div>
+    </header>
+
+    <div class="user-subbar">
+      <span id="userLabel"></span>
+      <button class="install-btn hidden" id="installBtn">&#11015; Install App</button>
+    </div>
+
+    <main>
+      <div id="stackContainer"></div>
+      <div id="deckLoader" class="hidden">
+        <div class="loader-cards">
+          <div class="loader-card-face" style="--r:-8deg; --x:-10px;"></div>
+          <div class="loader-card-face" style="--r:4deg; --x:8px;"></div>
+          <div class="loader-card-face" style="--r:0deg; --x:0px;"></div>
+        </div>
+        <p class="loader-text">Shuffling your deck&hellip;</p>
+      </div>
+      <div id="emptyState">
+        <div class="emoji">&#127881;</div>
+        <h3>All caught up!</h3>
+        <p>No tasks on the table right now.<br>Tap + to deal a new one.</p>
+      </div>
+      <div id="boardContainer" class="hidden"></div>
+
+      <div id="calendarContainer" class="hidden">
+        <div class="cal-header">
+          <button class="cal-nav-btn" id="calPrevBtn" aria-label="Previous month">&lsaquo;</button>
+          <div class="cal-month-label" id="calMonthLabel"></div>
+          <button class="cal-nav-btn" id="calNextBtn" aria-label="Next month">&rsaquo;</button>
+        </div>
+        <div class="cal-subheader"><button class="cal-today-btn" id="calTodayBtn">Today</button></div>
+        <div class="cal-weekdays"><span>S</span><span>M</span><span>T</span><span>W</span><span>T</span><span>F</span><span>S</span></div>
+        <div class="cal-grid" id="calGrid"></div>
+        <div class="cal-day-panel">
+          <div class="cal-day-panel-header">
+            <h3 id="calSelectedDateLabel"></h3>
+            <button class="mini-btn mini-complete" id="calAddTaskBtn" title="Add task on this date" aria-label="Add task on this date">+</button>
+          </div>
+          <div id="calDayTasks"></div>
+          <div id="calDayEmpty" class="board-empty hidden">No tasks scheduled for this day.</div>
+        </div>
+      </div>
+
+      <div id="completedContainer" class="hidden">
+        <div class="completed-filter-bar">
+          <select id="completedFilterSelect" aria-label="Filter completed tasks">
+            <option value="all">All (30 days)</option>
+            <option value="today">Today</option>
+            <option value="week">Last 7 days</option>
+            <option value="month">This month</option>
+            <option value="custom">Custom range</option>
+          </select>
+          <button class="pill-btn" id="reportBtn">&#11015; Report (CSV)</button>
+          <div id="customDateRange" class="hidden">
+            <input type="date" id="customFrom" aria-label="From date">
+            <input type="date" id="customTo" aria-label="To date">
+          </div>
+        </div>
+        <p class="done-hint">Completed tasks are kept for 30 days. You can reopen a task within 7 days of completing it.</p>
+        <div id="completedList"></div>
+        <div id="completedEmpty" class="board-empty hidden">No completed tasks in this range.</div>
+      </div>
+    </main>
+
+    <button class="fab" id="fabAdd" aria-label="Add task">+</button>
+  </div>
+
+  <!-- ============ CONFIRM ============ -->
+  <div class="modal-overlay" id="confirmModal">
+    <div class="modal-panel">
+      <h2 id="confirmTitle">Are you sure?</h2>
+      <p class="sub" id="confirmMsg"></p>
+      <div class="modal-actions">
+        <button class="btn btn-ghost" id="confirmNo">Cancel</button>
+        <button class="btn btn-emerald" id="confirmYes">Yes, confirm</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ ADD / EDIT ============ -->
+  <div class="modal-overlay" id="taskModal">
+    <div class="modal-panel">
+      <h2 id="taskModalTitle">Add a task</h2>
+      <p class="sub" id="taskModalSub">What needs doing?</p>
+      <div class="field">
+        <label for="taskTitleInput">Title</label>
+        <input type="text" id="taskTitleInput" maxlength="200" placeholder="e.g. Call the supplier">
+      </div>
+      <div class="field">
+        <label for="taskNotesInput">Notes (optional)</label>
+        <textarea id="taskNotesInput" maxlength="2000" placeholder="Any details worth remembering..."></textarea>
+      </div>
+      <div class="modal-actions">
+        <button class="btn btn-ghost" id="taskCancelBtn">Cancel</button>
+        <button class="btn btn-primary" id="taskSaveBtn">Save</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ SNOOZE ============ -->
+  <div class="modal-overlay" id="snoozeModal">
+    <div class="modal-panel">
+      <h2>Snooze this task</h2>
+      <p class="sub">Pick how many days before it comes back.</p>
+      <div class="snooze-options">
+        <button class="snooze-chip" data-days="1">1 day</button>
+        <button class="snooze-chip" data-days="2">2 days</button>
+        <button class="snooze-chip" data-days="3">3 days</button>
+        <button class="snooze-chip" data-days="7">1 week</button>
+      </div>
+      <div class="field">
+        <label for="snoozeCustomInput">Or enter a custom number of days</label>
+        <input type="number" id="snoozeCustomInput" min="1" max="365" inputmode="numeric" placeholder="e.g. 5">
+      </div>
+      <div class="modal-actions">
+        <button class="btn btn-ghost" id="snoozeCancelBtn">Cancel</button>
+        <button class="btn btn-primary" id="snoozeConfirmBtn">Snooze</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ iOS INSTALL HELP ============ -->
+  <div class="modal-overlay" id="iosModal">
+    <div class="modal-panel">
+      <h2>Install on your iPhone</h2>
+      <p class="sub">Add Daily Task Tracker to your Home Screen to use it like an app. Safari is the most reliable browser for this.</p>
+      <ol class="ios-steps">
+        <li><span class="ios-ic"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 15V3"/><path d="M8 7l4-4 4 4"/><path d="M5 12v7a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-7"/></svg></span><span><b>1.</b> Tap the <b>Share</b> button in the browser toolbar.</span></li>
+        <li><span class="ios-ic"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="4"/><path d="M12 8v8M8 12h8"/></svg></span><span><b>2.</b> Scroll down and choose <b>Add to Home Screen</b>.</span></li>
+        <li><span class="ios-ic">Add</span><span><b>3.</b> Tap <b>Add</b>. The app icon appears on your Home Screen.</span></li>
+      </ol>
+      <div class="modal-actions"><button class="btn btn-primary" id="iosCloseBtn">Got it</button></div>
+    </div>
+  </div>
+
+  <div id="toast" role="status" aria-live="polite"></div>
+  <button id="updateBar" class="hidden">Update available &mdash; tap to refresh</button>
+  <canvas id="confettiCanvas"></canvas>
+
+  <script>
+  (function () {
+    'use strict';
+
+    // ============================================================
+    // CONFIG - paste your deployed Apps Script Web App URL (ends with /exec)
+    // ============================================================
+    const API_URL = 'https://script.google.com/macros/s/AKfycbyhS7QOoQOTHdt0_GZ6X8uGoEOeiohyTjC9SZkM-Zsl_ICNfpuLOaMtPU3RCrYLSV9e/exec';
+    const REOPEN_DAYS = 7;
+    const POLL_MS = 30000;
+    const DAY_MS = 86400000;
+
+    const $ = id => document.getElementById(id);
+
+    // ============================================================
+    // STORAGE (wrapped: some private modes throw)
+    // ============================================================
+    const store = {
+      get(k) { try { return localStorage.getItem(k); } catch (e) { return null; } },
+      set(k, v) { try { localStorage.setItem(k, v); } catch (e) { /* ignore */ } },
+      del(k) { try { localStorage.removeItem(k); } catch (e) { /* ignore */ } }
+    };
+
+    // ============================================================
+    // STATE
+    // ============================================================
+    let currentUser = null;
+    let tasks = {};                 // id -> task
+    let currentView = 'deck';
+    let pendingConfirmAction = null;
+    let editingTaskId = null;
+    let addTaskDate = null;
+    let snoozeResolveCallback = null, snoozeCancelCallback = null, selectedSnoozeDays = 1;
+    let justMovedTaskId = null;
+    let inflight = 0;               // writes in progress (pauses background refresh)
+    let isDragging = false;
+    let knownLM = null;             // last-seen server "lastModified"
+    let pollTimer = null;
+    const _now = new Date();
+    let calYear = _now.getFullYear(), calMonth = _now.getMonth(), selectedCalDate = null;
+
+    // ============================================================
+    // DATE HELPERS (always LOCAL calendar dates, never UTC)
+    // ============================================================
+    const pad = n => String(n).padStart(2, '0');
+    const ymd = d => d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate());
+    function dateStr(offsetDays) { const d = new Date(); d.setDate(d.getDate() + (offsetDays || 0)); return ymd(d); }
+    function msToDate(ms) { return ymd(new Date(ms)); }
+    function formatDateShort(ds) { return new Date(ds + 'T00:00:00').toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' }); }
+    function formatDateLong(ds) { return new Date(ds + 'T00:00:00').toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' }); }
+
+    function escapeHtml(str) { const div = document.createElement('div'); div.textContent = str == null ? '' : String(str); return div.innerHTML; }
+    const isTmp = id => String(id).indexOf('tmp-') === 0;
+
+    function normalizeTask(t) {
+      return { id: t.id, title: t.title || '', notes: t.notes || '', status: t.status === 'completed' ? 'completed' : 'active',
+        order: t.order || 0, deferUntil: t.deferUntil || null, scheduledDate: t.scheduledDate || null,
+        pendingDays: t.pendingDays || 0, createdAt: t.createdAt || 0, completedAt: t.completedAt || null };
+    }
+
+    // ============================================================
+    // API (Apps Script Web App, JSON over a "simple" POST: no preflight)
+    // ============================================================
+    const API_CONFIGURED = /^https:\/\/script\.google(usercontent)?\.com\/.+/.test(API_URL);
+
+    async function api(action, payload) {
+      if (!API_CONFIGURED) throw new Error('App not configured: set API_URL at the top of index.html.');
+      let res;
+      try {
+        res = await fetch(API_URL, {
+          method: 'POST',
+          headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+          body: JSON.stringify({ action, token: store.get('dtt_token'), payload: payload || {} }),
+          redirect: 'follow'
+        });
+      } catch (e) {
+        throw new Error('Could not reach the server. Check your connection.');
+      }
+      let j;
+      try { j = await res.json(); } catch (e) { throw new Error('Unexpected response from the server. Check the Web App deployment (access: Anyone).'); }
+      if (!j.ok) {
+        const err = new Error(j.error || 'Request failed.');
+        err.code = j.code;
+        if (j.code === 'AUTH') forceLogout('Please log in again.');
+        throw err;
+      }
+      return j.data;
+    }
+
+    // ============================================================
+    // AUTH
+    // ============================================================
+    function showAuthError(msg) { const el = $('authError'); el.textContent = msg; el.style.display = 'block'; }
+    function hideAuthError() { $('authError').style.display = 'none'; }
+
+    $('loginForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      hideAuthError();
+      const userId = $('loginUserId').value.trim();
+      const password = $('loginPassword').value;
+      if (!userId || !password) { showAuthError('Enter your user ID and password.'); return; }
+      $('loginBtn').disabled = true;
+      try {
+        const d = await api('login', { userId, password });
+        store.set('dtt_token', d.token);
+        store.set('dtt_user', d.userId);
+        currentUser = d.userId;
+        $('loginPassword').value = '';
+        enterApp();
+      } catch (err) {
+        showAuthError(err.message);
+      } finally {
+        $('loginBtn').disabled = false;
+      }
+    });
+
+    function resetToLogin(message) {
+      stopPolling();
+      store.del('dtt_token'); store.del('dtt_user');
+      currentUser = null; tasks = {}; knownLM = null; inflight = 0;
+      $('userLabel').textContent = '';
+      $('loginUserId').value = ''; $('loginPassword').value = '';
+      $('appScreen').classList.add('hidden');
+      $('authScreen').classList.remove('hidden');
+      if (message) showAuthError(message); else hideAuthError();
+    }
+    function forceLogout(msg) { if (currentUser) resetToLogin(msg); }
+
+    $('logoutBtn').addEventListener('click', () => {
+      api('logout').catch(() => {});      // token is read synchronously, so this still carries it
+      resetToLogin('');
+    });
+
+    // ============================================================
+    // APP ENTRY, LOADING, BACKGROUND REFRESH
+    // ============================================================
+    function enterApp() {
+      $('authScreen').classList.add('hidden');
+      $('appScreen').classList.remove('hidden');
+      $('userLabel').textContent = 'Logged in as ' + currentUser;
+      updateInstallUI();
+      loadTasks(true);
+      startPolling();
+    }
+
+    async function loadTasks(showLoader) {
+      if (showLoader) showDeckLoader();
+      try {
+        const d = await api('list');
+        if (inflight > 0 || isDragging) return;         // do not clobber optimistic state; next poll retries
+        tasks = {};
+        d.tasks.forEach(t => { tasks[t.id] = normalizeTask(t); });
+        knownLM = d.lastModified;
+      } catch (e) {
+        if (showLoader && e.code !== 'AUTH') toast(e.message);
+      } finally {
+        if (showLoader) hideDeckLoader();
+      }
+      renderCurrentView();
+    }
+
+    function startPolling() { stopPolling(); pollTimer = setInterval(checkForChanges, POLL_MS); }
+    function stopPolling() { if (pollTimer) clearInterval(pollTimer); pollTimer = null; }
+
+    async function checkForChanges() {
+      if (!currentUser || document.visibilityState !== 'visible' || !navigator.onLine || inflight > 0 || isDragging) return;
+      try {
+        const r = await api('ping');
+        if (r.lastModified !== knownLM) await loadTasks(false);
+      } catch (e) { /* silent: next tick retries */ }
+    }
+    document.addEventListener('visibilitychange', () => {
+      if (document.visibilityState === 'visible') {
+        checkForChanges();
+        if ('serviceWorker' in navigator) navigator.serviceWorker.getRegistration().then(r => r && r.update()).catch(() => {});
+      }
+    });
+
+    function noteLM(lm) { if (lm && lm.prev === knownLM) knownLM = lm.now; }
+
+    // ============================================================
+    // OPTIMISTIC WRITES (update the UI first, roll back if the server refuses)
+    // ============================================================
+    function guardOnline() {
+      if (!navigator.onLine) { toast('You are offline. Changes are disabled.'); return false; }
+      return true;
+    }
+    function guardTmp(id) { if (isTmp(id)) { toast('Still saving. Try again in a moment.'); return false; } return true; }
+
+    async function mutate(id, localChange, action, payload) {
+      if (!guardOnline()) return false;
+      const snap = tasks[id] ? Object.assign({}, tasks[id]) : null;
+      localChange();
+      renderCurrentView();
+      inflight++;
+      try {
+        const r = await api(action, payload);
+        if (r.deleted) delete tasks[id]; else if (r.task) tasks[id] = normalizeTask(r.task);
+        noteLM(r.lm);
+        return true;
+      } catch (e) {
+        if (snap) tasks[id] = snap; else delete tasks[id];
+        if (e.code !== 'AUTH') toast(e.message || 'Could not save that change.');
+        return false;
+      } finally {
+        inflight--;
+        renderCurrentView();
+      }
+    }
+
+    async function addTask(title, notes, targetDate) {
+      if (!guardOnline()) return;
+      const today = dateStr(0);
+      const isFuture = !!(targetDate && targetDate > today);
+      const tmpId = 'tmp-' + Date.now();
+      tasks[tmpId] = { id: tmpId, title, notes, status: 'active', order: Date.now(), deferUntil: null,
+        scheduledDate: isFuture ? targetDate : null, pendingDays: 0,
+        createdAt: targetDate ? new Date(targetDate + 'T00:00:00').getTime() : Date.now(), completedAt: null };
+      renderCurrentView();
+      inflight++;
+      try {
+        const r = await api('add', { title, notes, targetDate: targetDate || null });
+        delete tasks[tmpId];
+        tasks[r.task.id] = normalizeTask(r.task);
+        noteLM(r.lm);
+        toast(targetDate ? 'Task scheduled for ' + formatDateShort(targetDate) + '.' : 'Task added to the deck.');
+      } catch (e) {
+        delete tasks[tmpId];
+        if (e.code !== 'AUTH') toast(e.message || 'Could not save the task.');
+      } finally {
+        inflight--;
+        renderCurrentView();
+      }
+    }
+
+    async function saveEdit(id, title, notes) {
+      if (!guardTmp(id)) return;
+      const ok = await mutate(id, () => { tasks[id].title = title; tasks[id].notes = notes; }, 'edit', { id, title, notes });
+      if (ok) toast('Task updated.');
+    }
+    async function markComplete(id) {
+      if (!guardTmp(id)) return;
+      await mutate(id, () => { tasks[id].status = 'completed'; tasks[id].completedAt = Date.now(); confettiBurst(); }, 'complete', { id });
+    }
+    async function deleteTaskConfirmed(id) {
+      if (!guardTmp(id)) return;
+      const ok = await mutate(id, () => { delete tasks[id]; }, 'delete', { id });
+      if (ok) toast('Task deleted.');
+    }
+    async function reopenTask(id) {
+      const ok = await mutate(id, () => { tasks[id].status = 'active'; tasks[id].completedAt = null; }, 'reopen', { id });
+      if (ok) toast('Moved back to pending.');
+    }
+    async function applySnooze(id, days) {
+      if (!guardTmp(id)) return;
+      const ok = await mutate(id, () => { tasks[id].deferUntil = dateStr(days); tasks[id].pendingDays = (tasks[id].pendingDays || 0) + days; }, 'snooze', { id, days });
+      if (ok) toast('Snoozed for ' + days + ' day' + (days > 1 ? 's' : '') + '.');
+    }
+    async function unsnooze(id) {
+      if (!guardTmp(id)) return;
+      const ok = await mutate(id, () => { tasks[id].deferUntil = null; }, 'unsnooze', { id });
+      if (ok) toast('Moved back to today.');
+    }
+    async function sendToBack(id) {
+      if (!guardTmp(id)) return;
+      const ok = await mutate(id, () => { tasks[id].order = Date.now(); }, 'toBack', { id });
+      if (ok) toast('Sent to the back of the deck.');
+    }
+
+    // ============================================================
+    // THEME
+    // ============================================================
+    function applyTheme(theme) {
+      document.documentElement.setAttribute('data-theme', theme);
+      document.querySelector('#themeToggle .knob').innerHTML = theme === 'dark' ? '&#127769;' : '&#9728;&#65039;';
+      const m = document.querySelector('meta[name="theme-color"]');
+      if (m) m.setAttribute('content', theme === 'dark' ? '#101E18' : '#1F6F54');
+      store.set('dtt_theme', theme);
+    }
+    $('themeToggle').addEventListener('click', () => {
+      applyTheme(document.documentElement.getAttribute('data-theme') === 'dark' ? 'light' : 'dark');
+      renderCurrentView();
+    });
+
+    // card gradients: deterministic per task id
+    const CARD_GRADIENTS_LIGHT = [
+      'radial-gradient(circle at 90% 10%, rgba(255,255,255,0.7) 0%, rgba(255,255,255,0) 32%) no-repeat, radial-gradient(circle at 75% 25%, rgba(255,255,255,0.45) 0%, rgba(255,255,255,0) 20%) no-repeat, linear-gradient(135deg, #FDEAF3 0%, #E8A9C7 100%)',
+      'repeating-linear-gradient(115deg, rgba(255,255,255,0.4) 0px, rgba(255,255,255,0.4) 3px, transparent 3px, transparent 24px), linear-gradient(135deg, #FFF1E0 0%, #F0A98A 100%)',
+      'radial-gradient(rgba(255,255,255,0.55) 1.6px, transparent 1.7px) 0 0/20px 20px, linear-gradient(135deg, #E8F0FF 0%, #93AEE0 100%)',
+      'radial-gradient(ellipse at 15% 105%, rgba(255,255,255,0.6) 0%, rgba(255,255,255,0) 45%) no-repeat, linear-gradient(135deg, #FFF6DE 0%, #F0C978 100%)',
+      'radial-gradient(circle at 92% 8%, transparent 0 24px, rgba(255,255,255,0.45) 25px, rgba(255,255,255,0.45) 27px, transparent 28px) no-repeat, linear-gradient(135deg, #F1E9FB 0%, #C7A6E8 100%)',
+      'radial-gradient(circle at 20% 20%, rgba(255,255,255,0.55) 2px, transparent 2.2px) 0 0/34px 34px, radial-gradient(circle at 60% 70%, rgba(255,255,255,0.4) 2px, transparent 2.2px) 0 0/34px 34px, linear-gradient(135deg, #FFE9D6 0%, #E0A878 100%)',
+      'linear-gradient(115deg, transparent 40%, rgba(255,255,255,0.35) 50%, transparent 60%) no-repeat, linear-gradient(135deg, #FDE8EC 0%, #EF9C9C 100%)',
+      'radial-gradient(circle at 12% 12%, rgba(255,255,255,0.55) 0%, rgba(255,255,255,0) 30%) no-repeat, radial-gradient(circle at 88% 90%, rgba(255,255,255,0.4) 0%, rgba(255,255,255,0) 30%) no-repeat, linear-gradient(135deg, #F5E6EE 0%, #B98CAE 100%)'
+    ];
+    const CARD_GRADIENTS_DARK = [
+      'radial-gradient(circle at 90% 10%, rgba(255,255,255,0.10) 0%, rgba(255,255,255,0) 32%) no-repeat, radial-gradient(circle at 75% 25%, rgba(255,255,255,0.06) 0%, rgba(255,255,255,0) 20%) no-repeat, linear-gradient(135deg, #3A2433 0%, #1D1420 100%)',
+      'repeating-linear-gradient(115deg, rgba(255,255,255,0.06) 0px, rgba(255,255,255,0.06) 3px, transparent 3px, transparent 24px), linear-gradient(135deg, #35231C 0%, #1D130E 100%)',
+      'radial-gradient(rgba(255,255,255,0.08) 1.6px, transparent 1.7px) 0 0/20px 20px, linear-gradient(135deg, #202A40 0%, #10141F 100%)',
+      'radial-gradient(ellipse at 15% 105%, rgba(255,255,255,0.10) 0%, rgba(255,255,255,0) 45%) no-repeat, linear-gradient(135deg, #332512 0%, #1C1509 100%)',
+      'radial-gradient(circle at 92% 8%, transparent 0 24px, rgba(255,255,255,0.08) 25px, rgba(255,255,255,0.08) 27px, transparent 28px) no-repeat, linear-gradient(135deg, #2C2038 0%, #17111D 100%)',
+      'radial-gradient(circle at 20% 20%, rgba(255,255,255,0.08) 2px, transparent 2.2px) 0 0/34px 34px, radial-gradient(circle at 60% 70%, rgba(255,255,255,0.06) 2px, transparent 2.2px) 0 0/34px 34px, linear-gradient(135deg, #33230F 0%, #1C1408 100%)',
+      'linear-gradient(115deg, transparent 40%, rgba(255,255,255,0.06) 50%, transparent 60%) no-repeat, linear-gradient(135deg, #331F20 0%, #1C1112 100%)',
+      'radial-gradient(circle at 12% 12%, rgba(255,255,255,0.10) 0%, rgba(255,255,255,0) 30%) no-repeat, radial-gradient(circle at 88% 90%, rgba(255,255,255,0.06) 0%, rgba(255,255,255,0) 30%) no-repeat, linear-gradient(135deg, #2E2029 0%, #181016 100%)'
+    ];
+    function hashStr(str) { let h = 0; for (let i = 0; i < str.length; i++) { h = (h << 5) - h + str.charCodeAt(i); h |= 0; } return Math.abs(h); }
+    function getCardGradient(id) {
+      const dark = document.documentElement.getAttribute('data-theme') === 'dark';
+      const palette = dark ? CARD_GRADIENTS_DARK : CARD_GRADIENTS_LIGHT;
+      return palette[hashStr(String(id)) % palette.length];
+    }
+
+    // ============================================================
+    // VIEW SWITCHING
+    // ============================================================
+    document.querySelectorAll('.view-btn').forEach(btn => btn.addEventListener('click', () => switchView(btn.dataset.view)));
+
+    function switchView(view) {
+      currentView = view;
+      document.querySelectorAll('.view-btn').forEach(b => b.classList.toggle('active', b.dataset.view === view));
+      $('stackContainer').classList.toggle('hidden', view !== 'deck');
+      $('boardContainer').classList.toggle('hidden', view !== 'board');
+      $('calendarContainer').classList.toggle('hidden', view !== 'calendar');
+      $('completedContainer').classList.toggle('hidden', view !== 'completed');
+      $('fabAdd').style.display = (view === 'calendar') ? 'none' : 'flex';
+      if (view !== 'deck') $('emptyState').style.display = 'none';
+      renderCurrentView();
+    }
+    function renderCurrentView() {
+      if (!currentUser) return;
+      if (currentView === 'board') renderBoard();
+      else if (currentView === 'completed') renderCompleted();
+      else if (currentView === 'calendar') renderCalendarView();
+      else renderStack();
+    }
+
+    // ============================================================
+    // SNOOZE MODAL
+    // ============================================================
+    document.querySelectorAll('.snooze-chip').forEach(chip => chip.addEventListener('click', () => {
+      selectedSnoozeDays = parseInt(chip.dataset.days, 10);
+      document.querySelectorAll('.snooze-chip').forEach(c => c.classList.remove('active'));
+      chip.classList.add('active');
+      $('snoozeCustomInput').value = '';
+    }));
+    $('snoozeCustomInput').addEventListener('input', () => {
+      document.querySelectorAll('.snooze-chip').forEach(c => c.classList.remove('active'));
+      selectedSnoozeDays = null;
+    });
+    function openSnoozeModal(onConfirm, onCancel) {
+      selectedSnoozeDays = 1;
+      document.querySelectorAll('.snooze-chip').forEach(c => c.classList.remove('active'));
+      document.querySelector('.snooze-chip[data-days="1"]').classList.add('active');
+      $('snoozeCustomInput').value = '';
+      snoozeResolveCallback = onConfirm; snoozeCancelCallback = onCancel;
+      $('snoozeModal').classList.add('show');
+    }
+    $('snoozeCancelBtn').addEventListener('click', () => {
+      $('snoozeModal').classList.remove('show');
+      const cb = snoozeCancelCallback; snoozeResolveCallback = null; snoozeCancelCallback = null;
+      if (cb) cb();
+    });
+    $('snoozeConfirmBtn').addEventListener('click', async () => {
+      const custom = parseInt($('snoozeCustomInput').value, 10);
+      let days = (custom && custom > 0) ? custom : (selectedSnoozeDays || 1);
+      days = Math.min(days, 365);
+      $('snoozeModal').classList.remove('show');
+      const cb = snoozeResolveCallback; snoozeResolveCallback = null; snoozeCancelCallback = null;
+      if (cb) await cb(days);
+    });
+
+    // ============================================================
+    // DECK
+    // ============================================================
+    function getVisibleTasks() {
+      const today = dateStr(0);
+      return Object.values(tasks)
+        .filter(t => t.status === 'active' && (!t.deferUntil || t.deferUntil <= today) && (!t.scheduledDate || t.scheduledDate <= today))
+        .sort((a, b) => a.order - b.order);
+    }
+
+    function renderStack() {
+      const container = $('stackContainer'), empty = $('emptyState');
+      const visible = getVisibleTasks();
+      container.innerHTML = '';
+      if (visible.length === 0) { empty.style.display = 'flex'; return; }
+      empty.style.display = 'none';
+      const maxShow = Math.min(visible.length, 4);
+      for (let i = maxShow - 1; i >= 0; i--) {
+        const card = buildCardEl(visible[i], i);
+        container.appendChild(card);
+        if (i === 0) attachSwipe(card, visible[i].id);
+      }
+    }
+
+    const SUITS = ['♠', '♥', '♦', '♣'];
+
+    function buildCardEl(task, index) {
+      const id = task.id;
+      const card = document.createElement('div');
+      card.className = 'task-card';
+      card.style.background = getCardGradient(id);
+      card.style.zIndex = String(100 - index);
+      const peek = index * 16;
+      card.style.transform = 'translate(' + peek + 'px, ' + peek + 'px) scale(' + (1 - index * 0.045) + ')';
+      card.style.opacity = index < 3 ? String(1 - index * 0.18) : '0';
+      if (index > 0) card.style.pointerEvents = 'none';
+
+      const badge = isTmp(id) ? '<span class="badge-saving">saving&hellip;</span>'
+        : (task.pendingDays > 0 ? '<span class="badge-pending">&#9203; pending ' + task.pendingDays + 'd</span>' : '<span class="badge-new">&#10022; new</span>');
+      card.innerHTML =
+        '<div class="swipe-overlay"></div>' +
+        '<div class="card-top">' + badge + '<span class="corner-suit">' + SUITS[index % 4] + '</span></div>' +
+        '<div class="card-body"><h3>' + escapeHtml(task.title) + '</h3>' + (task.notes ? '<p>' + escapeHtml(task.notes) + '</p>' : '') + '</div>' +
+        (index === 0 ? '<div class="card-actions">' +
+          '<button class="act-btn act-delete" title="Delete" aria-label="Delete">&#10007;</button>' +
+          '<button class="act-btn act-edit" title="Edit" aria-label="Edit">&#9998;</button>' +
+          '<button class="act-btn act-complete" title="Complete" aria-label="Complete">&#10003;</button></div>' : '');
+      if (index === 0) {
+        card.querySelector('.act-delete').addEventListener('click', e => { e.stopPropagation(); openConfirm('delete', id, task.title); });
+        card.querySelector('.act-edit').addEventListener('click', e => { e.stopPropagation(); openEditModal(id); });
+        card.querySelector('.act-complete').addEventListener('click', e => { e.stopPropagation(); openConfirm('complete', id, task.title); });
+      }
+      return card;
+    }
+
+    function attachSwipe(cardEl, taskId) {
+      let startX = 0, startY = 0, curX = 0, curY = 0, dragging = false;
+      const threshold = 100;
+      const overlay = cardEl.querySelector('.swipe-overlay');
+
+      function onDown(e) {
+        if (e.target.closest('.act-btn') || isTmp(taskId)) return;
+        dragging = true; isDragging = true; curX = 0; curY = 0;
+        startX = e.clientX; startY = e.clientY;
+        try { cardEl.setPointerCapture(e.pointerId); } catch (err) { /* ignore */ }
+        cardEl.classList.add('dragging');
+      }
+      function onMove(e) {
+        if (!dragging) return;
+        curX = e.clientX - startX; curY = e.clientY - startY;
+        cardEl.style.transform = 'translate(' + curX + 'px, ' + (curY * 0.3) + 'px) rotate(' + (curX / 18) + 'deg)';
+        if (curX > 20) { overlay.className = 'swipe-overlay right'; overlay.textContent = 'BACK OF THE DECK'; overlay.style.opacity = String(Math.min(curX / threshold, 1)); }
+        else if (curX < -20) { overlay.className = 'swipe-overlay left'; overlay.textContent = 'SNOOZE THIS TASK'; overlay.style.opacity = String(Math.min(Math.abs(curX) / threshold, 1)); }
+        else overlay.style.opacity = '0';
+      }
+      function onUp() {
+        if (!dragging) return;
+        dragging = false;
+        cardEl.classList.remove('dragging');
+        if (curX > threshold) {
+          isDragging = false;
+          commitSwipeRight(cardEl, taskId);
+        } else if (curX < -threshold) {
+          cardEl.style.transition = 'transform .2s ease';
+          cardEl.style.transform = 'translate(' + curX + 'px, ' + (curY * 0.3) + 'px) rotate(' + (curX / 18) + 'deg)';
+          openSnoozeModal(
+            async (days) => { isDragging = false; await commitSwipeLeft(cardEl, taskId, days); },
+            () => { isDragging = false; cardEl.style.transition = 'transform .25s ease'; cardEl.style.transform = ''; overlay.style.opacity = '0'; }
+          );
+        } else {
+          isDragging = false;
+          cardEl.style.transform = ''; overlay.style.opacity = '0';
+        }
+      }
+      cardEl.addEventListener('pointerdown', onDown);
+      cardEl.addEventListener('pointermove', onMove);
+      cardEl.addEventListener('pointerup', onUp);
+      cardEl.addEventListener('pointercancel', onUp);
+    }
+
+    function flyOutCard(cardEl, dir) {
+      const flyX = dir === 'right' ? window.innerWidth : -window.innerWidth;
+      cardEl.style.transition = 'transform .35s ease-out, opacity .35s ease-out';
+      cardEl.style.transform = 'translate(' + flyX + 'px, 40px) rotate(' + (dir === 'right' ? 25 : -25) + 'deg)';
+      cardEl.style.opacity = '0';
+    }
+    function commitSwipeRight(cardEl, taskId) {
+      flyOutCard(cardEl, 'right');
+      setTimeout(() => sendToBack(taskId), 300);
+    }
+    function commitSwipeLeft(cardEl, taskId, days) {
+      flyOutCard(cardEl, 'left');
+      return new Promise(resolve => setTimeout(async () => { await applySnooze(taskId, days); resolve(); }, 300));
+    }
+
+    // ============================================================
+    // BOARD
+    // ============================================================
+    function renderBoard() {
+      const board = $('boardContainer');
+      board.innerHTML =
+        '<div class="board-col"><div class="board-col-header">Today <span class="count" id="countToday">0</span></div><div class="board-col-body" id="bodyToday"></div></div>' +
+        '<div class="board-col"><div class="board-col-header">Snoozed <span class="count" id="countSnoozed">0</span></div><div class="board-col-body" id="bodySnoozed"></div></div>';
+      const today = dateStr(0);
+      const active = Object.values(tasks).filter(t => t.status === 'active');
+      const todayTasks = getVisibleTasks();
+      const snoozedTasks = active.filter(t => t.deferUntil && t.deferUntil > today)
+        .sort((a, b) => (a.deferUntil || '').localeCompare(b.deferUntil || ''));
+      $('countToday').textContent = todayTasks.length;
+      $('countSnoozed').textContent = snoozedTasks.length;
+      const bodyToday = $('bodyToday'), bodySnoozed = $('bodySnoozed');
+      if (!todayTasks.length) bodyToday.innerHTML = '<div class="board-empty">Nothing here. Flip a task in, or tap + to add one.</div>';
+      else todayTasks.forEach(t => bodyToday.appendChild(buildBoardCard(t, 'today')));
+      if (!snoozedTasks.length) bodySnoozed.innerHTML = '<div class="board-empty">No snoozed tasks.</div>';
+      else snoozedTasks.forEach(t => bodySnoozed.appendChild(buildBoardCard(t, 'snoozed')));
+
+      if (justMovedTaskId) {
+        const el = board.querySelector('[data-task-id="' + justMovedTaskId + '"]');
+        if (el) { el.classList.add('flipping-in'); el.addEventListener('animationend', () => el.classList.remove('flipping-in'), { once: true }); }
+        justMovedTaskId = null;
+      }
+    }
+
+    function taskBadge(task, prefix) {
+      if (isTmp(task.id)) return '<span class="badge-saving">saving&hellip;</span>';
+      return task.pendingDays > 0 ? '<span class="badge-pending">&#9203; ' + (prefix || '') + task.pendingDays + 'd</span>' : '<span class="badge-new">&#10022; new</span>';
+    }
+
+    function buildBoardCard(task, colName) {
+      const id = task.id;
+      const el = document.createElement('div');
+      el.className = 'board-card';
+      el.dataset.taskId = id;
+      el.style.background = getCardGradient(id);
+      el.innerHTML =
+        '<button class="mini-btn mini-flip" title="' + (colName === 'today' ? 'Move to Snoozed' : 'Move to Today') + '" aria-label="Flip">&#128260;</button>' +
+        '<div class="board-card-top">' + taskBadge(task) + (colName === 'snoozed' ? '<span class="badge-date">back ' + escapeHtml(task.deferUntil) + '</span>' : '') + '</div>' +
+        '<div class="board-card-title">' + escapeHtml(task.title) + '</div>' +
+        (task.notes ? '<div class="board-card-notes">' + escapeHtml(task.notes) + '</div>' : '') +
+        '<div class="board-card-actions"><button class="mini-btn mini-delete" title="Delete" aria-label="Delete">&#10007;</button>' +
+        '<button class="mini-btn mini-edit" title="Edit" aria-label="Edit">&#9998;</button>' +
+        '<button class="mini-btn mini-complete" title="Complete" aria-label="Complete">&#10003;</button></div>';
+      el.querySelector('.mini-delete').addEventListener('click', e => { e.stopPropagation(); openConfirm('delete', id, task.title); });
+      el.querySelector('.mini-edit').addEventListener('click', e => { e.stopPropagation(); openEditModal(id); });
+      el.querySelector('.mini-complete').addEventListener('click', e => { e.stopPropagation(); openConfirm('complete', id, task.title); });
+      el.querySelector('.mini-flip').addEventListener('click', e => { e.stopPropagation(); handleBoardFlip(id, colName, el); });
+      return el;
+    }
+
+    function handleBoardFlip(id, fromCol, cardEl) {
+      if (!guardTmp(id) || !guardOnline()) return;
+      cardEl.classList.add('flipping-out');
+      justMovedTaskId = id;
+      if (fromCol === 'today') {
+        setTimeout(() => openSnoozeModal(
+          async (days) => { await applySnooze(id, days); },
+          () => { justMovedTaskId = null; renderBoard(); }
+        ), 300);
+      } else {
+        setTimeout(() => unsnooze(id), 300);
+      }
+    }
+
+    // ============================================================
+    // CALENDAR (in-app only)
+    // ============================================================
+    function getTaskCalendarDate(task) {
+      if (task.scheduledDate) return task.scheduledDate;
+      if (task.deferUntil) return task.deferUntil;
+      return msToDate(task.createdAt);
+    }
+    function getTasksForDate(ds) {
+      return Object.values(tasks).filter(t => t.status === 'active' && getTaskCalendarDate(t) === ds).sort((a, b) => a.order - b.order);
+    }
+    function renderCalendarView() { if (!selectedCalDate) selectedCalDate = dateStr(0); renderCalendarGrid(); renderCalDayPanel(); }
+
+    function renderCalendarGrid() {
+      $('calMonthLabel').textContent = new Date(calYear, calMonth, 1).toLocaleDateString(undefined, { month: 'long', year: 'numeric' });
+      const grid = $('calGrid'); grid.innerHTML = '';
+      const todayStr = dateStr(0);
+      const firstDay = new Date(calYear, calMonth, 1).getDay();
+      const daysInMonth = new Date(calYear, calMonth + 1, 0).getDate();
+      const daysInPrev = new Date(calYear, calMonth, 0).getDate();
+      const cells = [];
+      for (let i = 0; i < firstDay; i++) cells.push({ day: daysInPrev - firstDay + 1 + i, ds: null });
+      for (let d = 1; d <= daysInMonth; d++) cells.push({ day: d, ds: calYear + '-' + pad(calMonth + 1) + '-' + pad(d) });
+      let trail = 1; while (cells.length % 7 !== 0) cells.push({ day: trail++, ds: null });
+
+      // count tasks per date once
+      const counts = {};
+      Object.values(tasks).forEach(t => { if (t.status === 'active') { const k = getTaskCalendarDate(t); counts[k] = (counts[k] || 0) + 1; } });
+
+      cells.forEach(cell => {
+        const el = document.createElement('div');
+        el.className = 'cal-cell' + (cell.ds ? '' : ' muted');
+        if (cell.ds === todayStr) el.classList.add('is-today');
+        if (cell.ds && cell.ds === selectedCalDate) el.classList.add('is-selected');
+        el.innerHTML = '<div class="cal-day-num">' + cell.day + '</div>';
+        if (cell.ds) {
+          const n = counts[cell.ds] || 0;
+          if (n > 0) {
+            const w = document.createElement('div'); w.className = 'cal-dot-wrap';
+            w.innerHTML = '<span class="cal-dot"></span>' + (n > 1 ? '<span class="cal-count">' + n + '</span>' : '');
+            el.appendChild(w);
+          }
+          el.addEventListener('click', () => { selectedCalDate = cell.ds; renderCalendarGrid(); renderCalDayPanel(); });
+        }
+        grid.appendChild(el);
+      });
+    }
+
+    function renderCalDayPanel() {
+      $('calSelectedDateLabel').textContent = formatDateLong(selectedCalDate);
+      const list = $('calDayTasks'), emptyEl = $('calDayEmpty');
+      list.innerHTML = '';
+      const dayTasks = getTasksForDate(selectedCalDate);
+      if (!dayTasks.length) emptyEl.classList.remove('hidden');
+      else { emptyEl.classList.add('hidden'); dayTasks.forEach(t => list.appendChild(buildCalTaskCard(t))); }
+    }
+
+    function buildCalTaskCard(task) {
+      const id = task.id;
+      const el = document.createElement('div');
+      el.className = 'board-card';
+      el.style.background = getCardGradient(id);
+      const label = isTmp(id) ? '<span class="badge-saving">saving&hellip;</span>'
+        : (task.pendingDays > 0 ? '<span class="badge-pending">&#9203; ' + task.pendingDays + 'd</span>' : '<span class="badge-new">&#10022; ' + (task.scheduledDate ? 'scheduled' : 'task') + '</span>');
+      el.innerHTML = '<div class="board-card-top">' + label + '</div>' +
+        '<div class="board-card-title">' + escapeHtml(task.title) + '</div>' +
+        (task.notes ? '<div class="board-card-notes">' + escapeHtml(task.notes) + '</div>' : '') +
+        '<div class="board-card-actions"><button class="mini-btn mini-delete" aria-label="Delete">&#10007;</button><button class="mini-btn mini-edit" aria-label="Edit">&#9998;</button><button class="mini-btn mini-complete" aria-label="Complete">&#10003;</button></div>';
+      el.querySelector('.mini-delete').addEventListener('click', () => openConfirm('delete', id, task.title));
+      el.querySelector('.mini-edit').addEventListener('click', () => openEditModal(id));
+      el.querySelector('.mini-complete').addEventListener('click', () => openConfirm('complete', id, task.title));
+      return el;
+    }
+
+    $('calPrevBtn').addEventListener('click', () => { calMonth--; if (calMonth < 0) { calMonth = 11; calYear--; } renderCalendarGrid(); });
+    $('calNextBtn').addEventListener('click', () => { calMonth++; if (calMonth > 11) { calMonth = 0; calYear++; } renderCalendarGrid(); });
+    $('calTodayBtn').addEventListener('click', () => { const t = new Date(); calYear = t.getFullYear(); calMonth = t.getMonth(); selectedCalDate = dateStr(0); renderCalendarGrid(); renderCalDayPanel(); });
+    $('calAddTaskBtn').addEventListener('click', () => {
+      editingTaskId = null; addTaskDate = selectedCalDate;
+      $('taskModalTitle').textContent = 'Add a task';
+      $('taskModalSub').textContent = 'Scheduling for ' + formatDateShort(selectedCalDate);
+      $('taskTitleInput').value = ''; $('taskNotesInput').value = '';
+      $('taskModal').classList.add('show');
+    });
+
+    // ============================================================
+    // DONE (last 30 days) + report
+    // ============================================================
+    $('completedFilterSelect').addEventListener('change', e => {
+      $('customDateRange').classList.toggle('hidden', e.target.value !== 'custom');
+      renderCompleted();
+    });
+    $('customFrom').addEventListener('change', renderCompleted);
+    $('customTo').addEventListener('change', renderCompleted);
+
+    function getCompletedFilterRange() {
+      const sel = $('completedFilterSelect').value;
+      let from = null, to = null;
+      if (sel === 'today') { from = to = dateStr(0); }
+      else if (sel === 'week') { from = dateStr(-6); to = dateStr(0); }
+      else if (sel === 'month') { const n = new Date(); from = n.getFullYear() + '-' + pad(n.getMonth() + 1) + '-01'; to = dateStr(0); }
+      else if (sel === 'custom') { from = $('customFrom').value || null; to = $('customTo').value || null; }
+      return { from, to };
+    }
+
+    function renderCompleted() {
+      const { from, to } = getCompletedFilterRange();
+      const completed = Object.values(tasks).filter(t => t.status === 'completed' && t.completedAt).filter(t => {
+        const d = msToDate(t.completedAt);
+        return !(from && d < from) && !(to && d > to);
+      }).sort((a, b) => b.completedAt - a.completedAt);
+      const list = $('completedList'), emptyEl = $('completedEmpty');
+      list.innerHTML = '';
+      if (!completed.length) { emptyEl.classList.remove('hidden'); return; }
+      emptyEl.classList.add('hidden');
+      completed.forEach(t => list.appendChild(buildCompletedCard(t)));
+    }
+
+    function buildCompletedCard(task) {
+      const el = document.createElement('div');
+      el.className = 'completed-card';
+      const canReopen = Date.now() - task.completedAt <= REOPEN_DAYS * DAY_MS;
+      const label = new Date(task.completedAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
+      el.innerHTML =
+        '<div class="completed-card-main"><div class="completed-card-title">' + escapeHtml(task.title) + '</div>' +
+        (task.notes ? '<div class="completed-card-notes">' + escapeHtml(task.notes) + '</div>' : '') + '</div>' +
+        '<div class="completed-card-side"><span class="completed-card-date">' + escapeHtml(label) + '</span>' +
+        (canReopen ? '<button class="reopen-btn">Reopen</button>' : '') + '</div>';
+      const rb = el.querySelector('.reopen-btn');
+      if (rb) rb.addEventListener('click', () => reopenTask(task.id));
+      return el;
+    }
+
+    $('reportBtn').addEventListener('click', async () => {
+      if (!guardOnline()) return;
+      const { from, to } = getCompletedFilterRange();
+      const btn = $('reportBtn');
+      btn.disabled = true;
+      try {
+        const r = await api('report', { from: from || dateStr(-30), to: to || dateStr(0) });
+        const blob = new Blob(['\uFEFF' + r.csv], { type: 'text/csv;charset=utf-8' });
+        const file = new File([blob], r.filename, { type: 'text/csv' });
+        if (isIOS() && navigator.canShare && navigator.canShare({ files: [file] })) {
+          await navigator.share({ files: [file] });
+        } else {
+          const a = document.createElement('a');
+          a.href = URL.createObjectURL(blob); a.download = r.filename;
+          document.body.appendChild(a); a.click(); a.remove();
+          setTimeout(() => URL.revokeObjectURL(a.href), 4000);
+        }
+        toast(r.count + ' completed task' + (r.count === 1 ? '' : 's') + ' in the report.');
+      } catch (e) {
+        if (e.name !== 'AbortError' && e.code !== 'AUTH') toast(e.message || 'Could not create the report.');
+      } finally {
+        btn.disabled = false;
+      }
+    });
+
+    // ============================================================
+    // CONFIRM + ADD/EDIT MODALS
+    // ============================================================
+    function openConfirm(type, id, title) {
+      if (!guardTmp(id)) return;
+      const titles = { complete: 'Mark as complete?', delete: 'Delete this task?' };
+      const msgs = { complete: 'Nice work. "' + title + '" will move to your completed pile.', delete: '"' + title + '" will be permanently deleted. This can\'t be undone.' };
+      $('confirmTitle').textContent = titles[type];
+      $('confirmMsg').textContent = msgs[type];
+      const yes = $('confirmYes');
+      yes.className = 'btn ' + (type === 'complete' ? 'btn-emerald' : 'btn-coral');
+      yes.textContent = type === 'complete' ? 'Yes, complete it' : 'Yes, delete it';
+      pendingConfirmAction = { type, id };
+      $('confirmModal').classList.add('show');
+    }
+    $('confirmNo').addEventListener('click', () => { pendingConfirmAction = null; closeModal('confirmModal'); });
+    $('confirmYes').addEventListener('click', async () => {
+      if (!pendingConfirmAction) return;
+      const { type, id } = pendingConfirmAction;
+      pendingConfirmAction = null;
+      closeModal('confirmModal');
+      if (type === 'complete') await markComplete(id); else await deleteTaskConfirmed(id);
+    });
+
+    $('fabAdd').addEventListener('click', () => {
+      editingTaskId = null; addTaskDate = null;
+      $('taskModalTitle').textContent = 'Add a task';
+      $('taskModalSub').textContent = 'What needs doing?';
+      $('taskTitleInput').value = ''; $('taskNotesInput').value = '';
+      $('taskModal').classList.add('show');
+    });
+    function openEditModal(id) {
+      if (!guardTmp(id) || !tasks[id]) return;
+      editingTaskId = id; addTaskDate = null;
+      $('taskModalTitle').textContent = 'Edit task';
+      $('taskModalSub').textContent = 'What needs doing?';
+      $('taskTitleInput').value = tasks[id].title;
+      $('taskNotesInput').value = tasks[id].notes || '';
+      $('taskModal').classList.add('show');
+    }
+    $('taskCancelBtn').addEventListener('click', () => closeModal('taskModal'));
+    $('taskSaveBtn').addEventListener('click', async () => {
+      const title = $('taskTitleInput').value.trim();
+      const notes = $('taskNotesInput').value.trim();
+      if (!title) { toast('Give the task a title first.'); return; }
+      const targetDate = addTaskDate, editId = editingTaskId;
+      closeModal('taskModal');
+      addTaskDate = null; editingTaskId = null;
+      if (editId) await saveEdit(editId, title, notes); else await addTask(title, notes, targetDate);
+    });
+    $('taskTitleInput').addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); $('taskSaveBtn').click(); } });
+    function closeModal(id) { $(id).classList.remove('show'); }
+
+    // ============================================================
+    // TOAST, LOADER, CONFETTI
+    // ============================================================
+    let toastTimer = null;
+    function toast(msg) {
+      const el = $('toast');
+      el.textContent = msg; el.classList.add('show');
+      clearTimeout(toastTimer);
+      toastTimer = setTimeout(() => el.classList.remove('show'), 2600);
+    }
+    function showDeckLoader() { $('deckLoader').classList.remove('hidden'); $('stackContainer').classList.add('hidden'); $('emptyState').style.display = 'none'; }
+    function hideDeckLoader() { $('deckLoader').classList.add('hidden'); $('stackContainer').classList.toggle('hidden', currentView !== 'deck'); }
+
+    function confettiBurst() {
+      if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+      const canvas = $('confettiCanvas'), ctx = canvas.getContext('2d');
+      canvas.width = window.innerWidth; canvas.height = window.innerHeight;
+      const colors = ['#2E9A66', '#C9922A', '#1F6F54', '#EC7565', '#45AA85'];
+      const parts = Array.from({ length: 70 }, () => ({
+        x: canvas.width / 2, y: canvas.height * 0.4, vx: (Math.random() - 0.5) * 14, vy: (Math.random() - 1.4) * 14,
+        size: 5 + Math.random() * 5, color: colors[Math.floor(Math.random() * colors.length)], rot: Math.random() * Math.PI, vr: (Math.random() - 0.5) * 0.3
+      }));
+      let frame = 0;
+      (function tick() {
+        frame++;
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        parts.forEach(p => {
+          p.vy += 0.5; p.x += p.vx; p.y += p.vy; p.rot += p.vr;
+          ctx.save(); ctx.translate(p.x, p.y); ctx.rotate(p.rot); ctx.fillStyle = p.color;
+          ctx.fillRect(-p.size / 2, -p.size / 2, p.size, p.size * 0.6); ctx.restore();
+        });
+        if (frame < 70) requestAnimationFrame(tick); else ctx.clearRect(0, 0, canvas.width, canvas.height);
+      })();
+    }
+
+    // ============================================================
+    // OFFLINE BANNER
+    // ============================================================
+    function updateOnlineUI() { $('offlineBanner').classList.toggle('hidden', navigator.onLine); }
+    window.addEventListener('offline', updateOnlineUI);
+    window.addEventListener('online', () => { updateOnlineUI(); checkForChanges(); });
+
+    // ============================================================
+    // INSTALL AS A MOBILE APP (PWA): Android/desktop prompt + iOS instructions
+    // ============================================================
+    let deferredPrompt = null;
+    const isIOS = () => /iphone|ipad|ipod/i.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+    const isStandalone = () => (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches) || window.navigator.standalone === true;
+
+    function updateInstallUI() {
+      const show = !!currentUser && !isStandalone() && (!!deferredPrompt || isIOS());
+      $('installBtn').classList.toggle('hidden', !show);
+    }
+    window.addEventListener('beforeinstallprompt', (e) => { e.preventDefault(); deferredPrompt = e; updateInstallUI(); });
+    window.addEventListener('appinstalled', () => { deferredPrompt = null; updateInstallUI(); toast('App installed.'); });
+    $('installBtn').addEventListener('click', async () => {
+      if (isIOS()) {
+        $('iosModal').classList.add('show');          // iOS has no install prompt API: show the steps
+      } else if (deferredPrompt) {
+        deferredPrompt.prompt();
+        try { await deferredPrompt.userChoice; } catch (e) { /* ignore */ }
+        deferredPrompt = null;
+        updateInstallUI();
+      }
+    });
+    $('iosCloseBtn').addEventListener('click', () => closeModal('iosModal'));
+    if (window.matchMedia) {
+      const mq = window.matchMedia('(display-mode: standalone)');
+      if (mq.addEventListener) mq.addEventListener('change', updateInstallUI);
+    }
+
+    // ============================================================
+    // SERVICE WORKER + "update available"
+    // ============================================================
+    if ('serviceWorker' in navigator && location.protocol.indexOf('http') === 0) {
+      window.addEventListener('load', () => {
+        const hadController = !!navigator.serviceWorker.controller;
+        let reloading = false;
+        navigator.serviceWorker.addEventListener('controllerchange', () => {
+          if (!hadController || reloading) return;      // first install: nothing to refresh
+          reloading = true; location.reload();
+        });
+        navigator.serviceWorker.register('./sw.js').then(reg => {
+          const offer = (worker) => {
+            const bar = $('updateBar');
+            bar.classList.remove('hidden');
+            bar.onclick = () => { bar.textContent = 'Updating…'; worker.postMessage({ type: 'SKIP_WAITING' }); };
+          };
+          if (reg.waiting && navigator.serviceWorker.controller) offer(reg.waiting);
+          reg.addEventListener('updatefound', () => {
+            const nw = reg.installing;
+            if (nw) nw.addEventListener('statechange', () => { if (nw.state === 'installed' && navigator.serviceWorker.controller) offer(nw); });
+          });
+        }).catch(() => { /* app still works without it */ });
+      });
+    }
+
+    // ============================================================
+    // BOOT
+    // ============================================================
+    window.addEventListener('DOMContentLoaded', () => {
+      applyTheme(store.get('dtt_theme') || 'light');
+      selectedCalDate = dateStr(0);
+      updateOnlineUI();
+      if (store.get('dtt_token')) {                // stay logged in until the user logs out
+        currentUser = store.get('dtt_user') || 'you';
+        enterApp();
+      }
+    });
+  })();
+  </script>
+</body>
+</html>
