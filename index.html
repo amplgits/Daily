@@ -197,6 +197,14 @@
     .cal-day-panel-header h3 { font-size: 15px; font-weight: 600; }
     #calAddTaskBtn { width: 34px; height: 34px; font-size: 18px; flex-shrink: 0; }
 
+    /* ---------- SITE / RESPONSIBILITY ---------- */
+    .meta-row { display: flex; flex-wrap: wrap; gap: 6px; margin: 0 0 8px; }
+    .meta-chip { font-size: 11.5px; font-weight: 700; padding: 4px 9px; border-radius: 999px; background: var(--card-bg); color: var(--primary); border: 1px solid var(--card-border); max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .completed-card-main .meta-row { margin: 6px 0 0; }
+    .completed-card-main .meta-chip { background: var(--primary-soft); }
+    .field-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+    .field-row .field { min-width: 0; }
+
     /* ---------- MODALS ---------- */
     .modal-overlay { position: fixed; inset: 0; background: var(--overlay); display: flex; align-items: flex-end; justify-content: center; z-index: 100; opacity: 0; pointer-events: none; transition: opacity .2s ease; }
     .modal-overlay.show { opacity: 1; pointer-events: auto; }
@@ -318,10 +326,11 @@
       <div id="completedContainer" class="hidden">
         <div class="completed-filter-bar">
           <select id="completedFilterSelect" aria-label="Filter completed tasks">
-            <option value="all">All (30 days)</option>
+            <option value="quarter">Last 90 days</option>
             <option value="today">Today</option>
             <option value="week">Last 7 days</option>
             <option value="month">This month</option>
+            <option value="all">All (1 year)</option>
             <option value="custom">Custom range</option>
           </select>
           <button class="pill-btn" id="reportBtn">&#11015; Report (CSV)</button>
@@ -330,7 +339,7 @@
             <input type="date" id="customTo" aria-label="To date">
           </div>
         </div>
-        <p class="done-hint">Completed tasks are kept for 30 days. You can reopen a task within 7 days of completing it.</p>
+        <p class="done-hint">Completed tasks are kept for 1 year. You can reopen a task within 90 days of completing it.</p>
         <div id="completedList"></div>
         <div id="completedEmpty" class="board-empty hidden">No completed tasks in this range.</div>
       </div>
@@ -360,8 +369,20 @@
         <label for="taskTitleInput">Title</label>
         <input type="text" id="taskTitleInput" maxlength="200" placeholder="e.g. Call the supplier">
       </div>
+      <div class="field-row">
+        <div class="field">
+          <label for="taskSiteInput">Site (optional)</label>
+          <input type="text" id="taskSiteInput" maxlength="100" list="siteOptions" autocomplete="off" placeholder="Site name">
+        </div>
+        <div class="field">
+          <label for="taskRespInput">Responsibility (optional)</label>
+          <input type="text" id="taskRespInput" maxlength="100" list="respOptions" autocomplete="off" placeholder="Person">
+        </div>
+      </div>
+      <datalist id="siteOptions"></datalist>
+      <datalist id="respOptions"></datalist>
       <div class="field">
-        <label for="taskNotesInput">Notes (optional)</label>
+        <label for="taskNotesInput">Remarks (optional)</label>
         <textarea id="taskNotesInput" maxlength="2000" placeholder="Any details worth remembering..."></textarea>
       </div>
       <div class="modal-actions">
@@ -419,8 +440,8 @@
     // CONFIG - paste your deployed Apps Script Web App URL (ends with /exec)
     // ============================================================
     const API_URL = 'https://script.google.com/macros/s/AKfycbyhS7QOoQOTHdt0_GZ6X8uGoEOeiohyTjC9SZkM-Zsl_ICNfpuLOaMtPU3RCrYLSV9e/exec';
-    const REOPEN_DAYS = 7;
-    const POLL_MS = 30000;
+    const KEEP_DAYS = 365;            // how long the server keeps completed tasks
+    const POLL_MS = 15000;          // how often Sheet changes are picked up
     const DAY_MS = 86400000;
 
     const $ = id => document.getElementById(id);
@@ -442,9 +463,11 @@
     let currentView = 'deck';
     let pendingConfirmAction = null;
     let editingTaskId = null;
+    let editingOriginal = null;     // field values when the edit form was opened
     let addTaskDate = null;
     let snoozeResolveCallback = null, snoozeCancelCallback = null, selectedSnoozeDays = 1;
     let justMovedTaskId = null;
+    let reopenDays = 90;            // replaced by the server's value on load
     let inflight = 0;               // writes in progress (pauses background refresh)
     let isDragging = false;
     let knownLM = null;             // last-seen server "lastModified"
@@ -464,9 +487,14 @@
 
     function escapeHtml(str) { const div = document.createElement('div'); div.textContent = str == null ? '' : String(str); return div.innerHTML; }
     const isTmp = id => String(id).indexOf('tmp-') === 0;
+    function metaHtml(t) {
+      const chips = (t.site ? '<span class="meta-chip" title="Site">&#128205; ' + escapeHtml(t.site) + '</span>' : '') +
+        (t.responsibility ? '<span class="meta-chip" title="Responsibility">&#128100; ' + escapeHtml(t.responsibility) + '</span>' : '');
+      return chips ? '<div class="meta-row">' + chips + '</div>' : '';
+    }
 
     function normalizeTask(t) {
-      return { id: t.id, title: t.title || '', notes: t.notes || '', status: t.status === 'completed' ? 'completed' : 'active',
+      return { id: t.id, title: t.title || '', site: t.site || '', responsibility: t.responsibility || '', notes: t.notes || '', status: t.status === 'completed' ? 'completed' : 'active',
         order: t.order || 0, deferUntil: t.deferUntil || null, scheduledDate: t.scheduledDate || null,
         pendingDays: t.pendingDays || 0, createdAt: t.createdAt || 0, completedAt: t.completedAt || null };
     }
@@ -564,6 +592,7 @@
         tasks = {};
         d.tasks.forEach(t => { tasks[t.id] = normalizeTask(t); });
         knownLM = d.lastModified;
+        if (d.reopenDays) reopenDays = d.reopenDays;
       } catch (e) {
         if (showLoader && e.code !== 'AUTH') toast(e.message);
       } finally {
@@ -621,18 +650,19 @@
       }
     }
 
-    async function addTask(title, notes, targetDate) {
+    async function addTask(fields, targetDate) {
+      const { title, site, responsibility, notes } = fields;
       if (!guardOnline()) return;
       const today = dateStr(0);
       const isFuture = !!(targetDate && targetDate > today);
       const tmpId = 'tmp-' + Date.now();
-      tasks[tmpId] = { id: tmpId, title, notes, status: 'active', order: Date.now(), deferUntil: null,
+      tasks[tmpId] = { id: tmpId, title, site, responsibility, notes, status: 'active', order: Date.now(), deferUntil: null,
         scheduledDate: isFuture ? targetDate : null, pendingDays: 0,
         createdAt: targetDate ? new Date(targetDate + 'T00:00:00').getTime() : Date.now(), completedAt: null };
       renderCurrentView();
       inflight++;
       try {
-        const r = await api('add', { title, notes, targetDate: targetDate || null });
+        const r = await api('add', { title, site, responsibility, notes, targetDate: targetDate || null });
         delete tasks[tmpId];
         tasks[r.task.id] = normalizeTask(r.task);
         noteLM(r.lm);
@@ -646,9 +676,9 @@
       }
     }
 
-    async function saveEdit(id, title, notes) {
-      if (!guardTmp(id)) return;
-      const ok = await mutate(id, () => { tasks[id].title = title; tasks[id].notes = notes; }, 'edit', { id, title, notes });
+    async function saveEdit(id, fields) {
+      if (!guardTmp(id) || !Object.keys(fields).length) return;
+      const ok = await mutate(id, () => { Object.assign(tasks[id], fields); }, 'edit', Object.assign({ id }, fields));
       if (ok) toast('Task updated.');
     }
     async function markComplete(id) {
@@ -824,7 +854,7 @@
       card.innerHTML =
         '<div class="swipe-overlay"></div>' +
         '<div class="card-top">' + badge + '<span class="corner-suit">' + SUITS[index % 4] + '</span></div>' +
-        '<div class="card-body"><h3>' + escapeHtml(task.title) + '</h3>' + (task.notes ? '<p>' + escapeHtml(task.notes) + '</p>' : '') + '</div>' +
+        '<div class="card-body"><h3>' + escapeHtml(task.title) + '</h3>' + metaHtml(task) + (task.notes ? '<p>' + escapeHtml(task.notes) + '</p>' : '') + '</div>' +
         (index === 0 ? '<div class="card-actions">' +
           '<button class="act-btn act-delete" title="Delete" aria-label="Delete">&#10007;</button>' +
           '<button class="act-btn act-edit" title="Edit" aria-label="Edit">&#9998;</button>' +
@@ -939,7 +969,7 @@
       el.innerHTML =
         '<button class="mini-btn mini-flip" title="' + (colName === 'today' ? 'Move to Snoozed' : 'Move to Today') + '" aria-label="Flip">&#128260;</button>' +
         '<div class="board-card-top">' + taskBadge(task) + (colName === 'snoozed' ? '<span class="badge-date">back ' + escapeHtml(task.deferUntil) + '</span>' : '') + '</div>' +
-        '<div class="board-card-title">' + escapeHtml(task.title) + '</div>' +
+        '<div class="board-card-title">' + escapeHtml(task.title) + '</div>' + metaHtml(task) +
         (task.notes ? '<div class="board-card-notes">' + escapeHtml(task.notes) + '</div>' : '') +
         '<div class="board-card-actions"><button class="mini-btn mini-delete" title="Delete" aria-label="Delete">&#10007;</button>' +
         '<button class="mini-btn mini-edit" title="Edit" aria-label="Edit">&#9998;</button>' +
@@ -1030,7 +1060,7 @@
       const label = isTmp(id) ? '<span class="badge-saving">saving&hellip;</span>'
         : (task.pendingDays > 0 ? '<span class="badge-pending">&#9203; ' + task.pendingDays + 'd</span>' : '<span class="badge-new">&#10022; ' + (task.scheduledDate ? 'scheduled' : 'task') + '</span>');
       el.innerHTML = '<div class="board-card-top">' + label + '</div>' +
-        '<div class="board-card-title">' + escapeHtml(task.title) + '</div>' +
+        '<div class="board-card-title">' + escapeHtml(task.title) + '</div>' + metaHtml(task) +
         (task.notes ? '<div class="board-card-notes">' + escapeHtml(task.notes) + '</div>' : '') +
         '<div class="board-card-actions"><button class="mini-btn mini-delete" aria-label="Delete">&#10007;</button><button class="mini-btn mini-edit" aria-label="Edit">&#9998;</button><button class="mini-btn mini-complete" aria-label="Complete">&#10003;</button></div>';
       el.querySelector('.mini-delete').addEventListener('click', () => openConfirm('delete', id, task.title));
@@ -1044,14 +1074,11 @@
     $('calTodayBtn').addEventListener('click', () => { const t = new Date(); calYear = t.getFullYear(); calMonth = t.getMonth(); selectedCalDate = dateStr(0); renderCalendarGrid(); renderCalDayPanel(); });
     $('calAddTaskBtn').addEventListener('click', () => {
       editingTaskId = null; addTaskDate = selectedCalDate;
-      $('taskModalTitle').textContent = 'Add a task';
-      $('taskModalSub').textContent = 'Scheduling for ' + formatDateShort(selectedCalDate);
-      $('taskTitleInput').value = ''; $('taskNotesInput').value = '';
-      $('taskModal').classList.add('show');
+      showTaskModal('Add a task', 'Scheduling for ' + formatDateShort(selectedCalDate));
     });
 
     // ============================================================
-    // DONE (last 30 days) + report
+    // DONE (completed tasks) + report
     // ============================================================
     $('completedFilterSelect').addEventListener('change', e => {
       $('customDateRange').classList.toggle('hidden', e.target.value !== 'custom');
@@ -1064,6 +1091,7 @@
       const sel = $('completedFilterSelect').value;
       let from = null, to = null;
       if (sel === 'today') { from = to = dateStr(0); }
+      else if (sel === 'quarter') { from = dateStr(-89); to = dateStr(0); }
       else if (sel === 'week') { from = dateStr(-6); to = dateStr(0); }
       else if (sel === 'month') { const n = new Date(); from = n.getFullYear() + '-' + pad(n.getMonth() + 1) + '-01'; to = dateStr(0); }
       else if (sel === 'custom') { from = $('customFrom').value || null; to = $('customTo').value || null; }
@@ -1086,10 +1114,10 @@
     function buildCompletedCard(task) {
       const el = document.createElement('div');
       el.className = 'completed-card';
-      const canReopen = Date.now() - task.completedAt <= REOPEN_DAYS * DAY_MS;
+      const canReopen = Date.now() - task.completedAt <= reopenDays * DAY_MS;
       const label = new Date(task.completedAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
       el.innerHTML =
-        '<div class="completed-card-main"><div class="completed-card-title">' + escapeHtml(task.title) + '</div>' +
+        '<div class="completed-card-main"><div class="completed-card-title">' + escapeHtml(task.title) + '</div>' + metaHtml(task) +
         (task.notes ? '<div class="completed-card-notes">' + escapeHtml(task.notes) + '</div>' : '') + '</div>' +
         '<div class="completed-card-side"><span class="completed-card-date">' + escapeHtml(label) + '</span>' +
         (canReopen ? '<button class="reopen-btn">Reopen</button>' : '') + '</div>';
@@ -1104,7 +1132,7 @@
       const btn = $('reportBtn');
       btn.disabled = true;
       try {
-        const r = await api('report', { from: from || dateStr(-30), to: to || dateStr(0) });
+        const r = await api('report', { from: from || dateStr(-KEEP_DAYS), to: to || dateStr(0) });
         const blob = new Blob(['\uFEFF' + r.csv], { type: 'text/csv;charset=utf-8' });
         const file = new File([blob], r.filename, { type: 'text/csv' });
         if (isIOS() && navigator.canShare && navigator.canShare({ files: [file] })) {
@@ -1147,33 +1175,54 @@
       if (type === 'complete') await markComplete(id); else await deleteTaskConfirmed(id);
     });
 
+    // Suggestions built from values already used on other tasks
+    function fillOptions(listId, key) {
+      const values = Array.from(new Set(Object.values(tasks).map(t => t[key]).filter(Boolean))).sort((a, b) => a.localeCompare(b));
+      $(listId).innerHTML = values.map(v => '<option value="' + escapeHtml(v).replace(/"/g, '&quot;') + '"></option>').join('');
+    }
+    function showTaskModal(heading, sub, task) {
+      $('taskModalTitle').textContent = heading;
+      $('taskModalSub').textContent = sub;
+      $('taskTitleInput').value = task ? task.title : '';
+      $('taskSiteInput').value = task ? task.site || '' : '';
+      $('taskRespInput').value = task ? task.responsibility || '' : '';
+      $('taskNotesInput').value = task ? task.notes || '' : '';
+      fillOptions('siteOptions', 'site');
+      fillOptions('respOptions', 'responsibility');
+      $('taskModal').classList.add('show');
+    }
+
     $('fabAdd').addEventListener('click', () => {
       editingTaskId = null; addTaskDate = null;
-      $('taskModalTitle').textContent = 'Add a task';
-      $('taskModalSub').textContent = 'What needs doing?';
-      $('taskTitleInput').value = ''; $('taskNotesInput').value = '';
-      $('taskModal').classList.add('show');
+      showTaskModal('Add a task', 'What needs doing?');
     });
     function openEditModal(id) {
       if (!guardTmp(id) || !tasks[id]) return;
       editingTaskId = id; addTaskDate = null;
-      $('taskModalTitle').textContent = 'Edit task';
-      $('taskModalSub').textContent = 'What needs doing?';
-      $('taskTitleInput').value = tasks[id].title;
-      $('taskNotesInput').value = tasks[id].notes || '';
-      $('taskModal').classList.add('show');
+      const t = tasks[id];
+      editingOriginal = { title: t.title, site: t.site, responsibility: t.responsibility, notes: t.notes };
+      showTaskModal('Edit task', 'What needs doing?', tasks[id]);
     }
     $('taskCancelBtn').addEventListener('click', () => closeModal('taskModal'));
     $('taskSaveBtn').addEventListener('click', async () => {
       const title = $('taskTitleInput').value.trim();
+      const site = $('taskSiteInput').value.trim();
+      const responsibility = $('taskRespInput').value.trim();
       const notes = $('taskNotesInput').value.trim();
       if (!title) { toast('Give the task a title first.'); return; }
       const targetDate = addTaskDate, editId = editingTaskId;
       closeModal('taskModal');
       addTaskDate = null; editingTaskId = null;
-      if (editId) await saveEdit(editId, title, notes); else await addTask(title, notes, targetDate);
+      const fields = { title, site, responsibility, notes };
+      if (!editId) { await addTask(fields, targetDate); return; }
+      // Send only what was changed here, so newer Sheet edits are not overwritten.
+      const changed = {};
+      Object.keys(fields).forEach(k => { if (fields[k] !== String(editingOriginal[k] || '').trim()) changed[k] = fields[k]; });
+      await saveEdit(editId, changed);
     });
-    $('taskTitleInput').addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); $('taskSaveBtn').click(); } });
+    ['taskTitleInput', 'taskSiteInput', 'taskRespInput'].forEach(fieldId => $(fieldId).addEventListener('keydown', e => {
+      if (e.key === 'Enter') { e.preventDefault(); $('taskSaveBtn').click(); }
+    }));
     function closeModal(id) { $(id).classList.remove('show'); }
 
     // ============================================================

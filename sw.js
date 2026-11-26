@@ -1,6 +1,6 @@
 /* Daily Task Tracker - service worker (app shell only; API calls are never cached).
    Bump VERSION on every release so installed apps show "Update available". */
-const VERSION = 'dtt-v2';
+const VERSION = 'dtt-v3';
 const SHELL = [
   './',
   './index.html',
